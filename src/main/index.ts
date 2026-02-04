@@ -306,11 +306,21 @@ function setupIPC(): void {
         pitch?: number
       }
     ) => {
-      return sendTTSCommand({ cmd: 'preview', ...params })
+      const result = await sendTTSCommand({ cmd: 'preview', ...params }) as { ok: boolean; output?: string; error?: string }
+      if (result.ok && result.output) {
+        try {
+          const audioData = readFileSync(result.output)
+          const dataUrl = `data:audio/wav;base64,${audioData.toString('base64')}`
+          return { ok: true, dataUrl }
+        } catch (err) {
+          return { ok: false, error: `Failed to read audio file: ${(err as Error).message}` }
+        }
+      }
+      return result
     }
   )
 
-  ipcMain.handle('tts:export', async (_event, params: { text: string; voice_id?: string; rate?: number; volume?: number; pitch?: number }) => {
+  ipcMain.handle('tts:export', async (_event, params: { text: string; voice_id?: string; rate?: number; volume?: number; pitch?: number; graph?: object }) => {
     if (!mainWindow) return { canceled: true }
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Export Audio',
@@ -320,8 +330,38 @@ function setupIPC(): void {
     if (result.canceled || !result.filePath) {
       return { canceled: true }
     }
-    const synthResult = await sendTTSCommand({ cmd: 'synthesize', ...params, output: result.filePath })
+    const cmd = params.graph
+      ? { cmd: 'process_graph', ...params, output: result.filePath }
+      : { cmd: 'synthesize', ...params, output: result.filePath }
+    const synthResult = await sendTTSCommand(cmd)
     return { canceled: false, ...synthResult as object }
+  })
+
+  // DSP node registry
+  ipcMain.handle('tts:list-dsp-nodes', async () => {
+    return sendTTSCommand({ cmd: 'list_dsp_nodes' })
+  })
+
+  // Process through DSP graph
+  ipcMain.handle('tts:process-graph', async (_event, params: {
+    text: string
+    voice_id?: string
+    rate?: number
+    volume?: number
+    graph: object
+    output?: string
+  }) => {
+    const result = await sendTTSCommand({ cmd: 'process_graph', ...params }) as { ok: boolean; output?: string; error?: string }
+    if (result.ok && result.output) {
+      try {
+        const audioData = readFileSync(result.output)
+        const dataUrl = `data:audio/wav;base64,${audioData.toString('base64')}`
+        return { ok: true, dataUrl }
+      } catch (err) {
+        return { ok: false, error: `Failed to read audio file: ${(err as Error).message}` }
+      }
+    }
+    return result
   })
 }
 

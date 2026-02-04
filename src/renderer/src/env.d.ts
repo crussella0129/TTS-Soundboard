@@ -15,6 +15,32 @@ interface TTSParams {
   pitch?: number
 }
 
+interface DSPParamDef {
+  type: 'float' | 'int' | 'select'
+  min?: number
+  max?: number
+  default: number | string
+  label: string
+  options?: string[]
+}
+
+interface DSPNodeDef {
+  label: string
+  category: string
+  params: Record<string, DSPParamDef>
+}
+
+interface DSPGraphNode {
+  id: string
+  type: string
+  params: Record<string, number | string>
+}
+
+interface DSPGraph {
+  nodes: DSPGraphNode[]
+  edges: { source: string; target: string }[]
+}
+
 interface Window {
   electron: typeof import('@electron-toolkit/preload').electronAPI
   api: {
@@ -30,8 +56,10 @@ interface Window {
     ttsStatus: () => Promise<{ ready: boolean }>
     ttsListVoices: () => Promise<{ ok: boolean; voices?: TTSVoice[]; error?: string }>
     ttsSynthesize: (params: TTSParams & { output?: string }) => Promise<{ ok: boolean; output?: string; error?: string }>
-    ttsPreview: (params: TTSParams) => Promise<{ ok: boolean; output?: string; error?: string }>
-    ttsExport: (params: TTSParams) => Promise<{ canceled?: boolean; ok?: boolean; output?: string; error?: string }>
+    ttsPreview: (params: TTSParams) => Promise<{ ok: boolean; dataUrl?: string; error?: string }>
+    ttsExport: (params: TTSParams & { graph?: object }) => Promise<{ canceled?: boolean; ok?: boolean; output?: string; error?: string }>
+    ttsListDSPNodes: () => Promise<{ ok: boolean; nodes?: Record<string, DSPNodeDef>; error?: string }>
+    ttsProcessGraph: (params: { text: string; voice_id?: string; rate?: number; volume?: number; graph: DSPGraph; output?: string }) => Promise<{ ok: boolean; dataUrl?: string; error?: string }>
     onTTSReady: (callback: () => void) => void
   }
 }

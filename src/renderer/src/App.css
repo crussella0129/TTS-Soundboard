@@ -420,3 +420,240 @@
 .placeholder-sub {
   font-size: 13px;
 }
+
+/* Node Graph Editor */
+.node-graph-container {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.node-graph-container .react-flow__background {
+  background: var(--bg-primary);
+}
+
+/* Flow node base */
+.flow-node {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  min-width: 140px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.flow-node:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.flow-node-header {
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: 8px 8px 0 0;
+}
+
+/* IO nodes (input/output) */
+.flow-io-node {
+  min-width: 120px;
+}
+
+.flow-io-node .io-header {
+  background: var(--accent);
+  color: #ffffff;
+  border-bottom: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+/* DSP effect nodes */
+.flow-dsp-node {
+  min-width: 180px;
+  max-width: 240px;
+}
+
+.flow-dsp-node .flow-node-header {
+  background: rgba(74, 158, 255, 0.1);
+  color: var(--accent);
+}
+
+.flow-node-params {
+  padding: 8px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-param {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  cursor: default;
+}
+
+.flow-param-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.flow-param-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-param-slider {
+  width: 100%;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.flow-param-select {
+  width: 100%;
+  padding: 2px 4px;
+  font-size: 11px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+}
+
+/* React Flow handles */
+.flow-node .react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border: 2px solid var(--bg-secondary);
+}
+
+.flow-node .react-flow__handle:hover {
+  background: var(--accent-hover);
+}
+
+/* Context menu */
+.context-menu {
+  position: fixed;
+  z-index: 100;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  padding: 6px 0;
+  min-width: 180px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.context-menu-title {
+  padding: 6px 14px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.context-menu-group {
+  border-top: 1px solid var(--border-color);
+  padding-top: 4px;
+  margin-top: 4px;
+}
+
+.context-menu-group:first-of-type {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.context-menu-cat {
+  padding: 4px 14px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 14px;
+  background: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.context-menu-item:hover {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* Graph hint */
+.graph-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 4px 12px;
+  border-radius: 4px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Voice editor tabs */
+.voice-editor-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  padding: 2px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+  width: fit-content;
+}
+
+.voice-editor-tab {
+  padding: 5px 16px;
+  font-size: 13px;
+  background: none;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+.voice-editor-tab:hover {
+  color: var(--text-primary);
+}
+
+.voice-editor-tab.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.graph-section-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}

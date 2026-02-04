@@ -75,30 +75,51 @@ export default function DialogueLibraryView({ project, updateProject }: Props): 
     setIsNew(false)
   }
 
-  const getProfile = (id: string): { name: string; rate: number; volume: number; pitch: number } | null => {
-    const vp = project.voiceProfiles.find((v) => v.id === id)
-    if (!vp) return null
-    return { name: vp.name, rate: vp.rate, volume: vp.volume, pitch: vp.pitch }
+  const getFullProfile = (id: string) => {
+    return project.voiceProfiles.find((v) => v.id === id) ?? null
   }
 
   const getProfileName = (id: string): string => {
-    return getProfile(id)?.name || 'None'
+    return getFullProfile(id)?.name || 'None'
   }
 
   const handlePlayAsset = async (da: DialogueAsset): Promise<void> => {
     if (synthesizing) return
-    const profile = getProfile(da.voiceProfileId)
+    const profile = getFullProfile(da.voiceProfileId)
     setSynthesizing(da.id)
     try {
-      const result = await window.api.ttsPreview({
-        text: da.text,
-        rate: profile?.rate ?? 150,
-        volume: profile?.volume ?? 1.0,
-        pitch: profile?.pitch ?? 0
-      })
-      if (result.ok && result.output) {
+      const graph = profile?.graph
+      const hasDSPNodes = graph && graph.nodes.some(
+        (n) => n.id !== 'input' && n.id !== 'output'
+      )
+
+      let result
+      if (hasDSPNodes && graph) {
+        result = await window.api.ttsProcessGraph({
+          text: da.text,
+          voice_id: profile?.systemVoiceId,
+          rate: profile?.rate ?? 150,
+          volume: profile?.volume ?? 1.0,
+          graph: {
+            nodes: graph.nodes
+              .filter((n) => n.id !== 'input' && n.id !== 'output')
+              .map((n) => ({ id: n.id, type: n.type, params: n.params })),
+            edges: graph.edges.map((e) => ({ source: e.source, target: e.target }))
+          }
+        })
+      } else {
+        result = await window.api.ttsPreview({
+          text: da.text,
+          voice_id: profile?.systemVoiceId,
+          rate: profile?.rate ?? 150,
+          volume: profile?.volume ?? 1.0,
+          pitch: profile?.pitch ?? 0
+        })
+      }
+
+      if (result.ok && result.dataUrl) {
         if (audioRef.current) audioRef.current.pause()
-        const audio = new Audio(`file://${result.output}`)
+        const audio = new Audio(result.dataUrl)
         audioRef.current = audio
         audio.play()
       } else if (result.error) {
@@ -112,13 +133,37 @@ export default function DialogueLibraryView({ project, updateProject }: Props): 
   }
 
   const handleExportAsset = async (da: DialogueAsset): Promise<void> => {
-    const profile = getProfile(da.voiceProfileId)
-    const result = await window.api.ttsExport({
+    const profile = getFullProfile(da.voiceProfileId)
+    const graph = profile?.graph
+    const hasDSPNodes = graph && graph.nodes.some(
+      (n) => n.id !== 'input' && n.id !== 'output'
+    )
+
+    const exportParams: {
+      text: string
+      voice_id?: string
+      rate?: number
+      volume?: number
+      pitch?: number
+      graph?: object
+    } = {
       text: da.text,
+      voice_id: profile?.systemVoiceId,
       rate: profile?.rate ?? 150,
       volume: profile?.volume ?? 1.0,
       pitch: profile?.pitch ?? 0
-    })
+    }
+
+    if (hasDSPNodes && graph) {
+      exportParams.graph = {
+        nodes: graph.nodes
+          .filter((n) => n.id !== 'input' && n.id !== 'output')
+          .map((n) => ({ id: n.id, type: n.type, params: n.params })),
+        edges: graph.edges.map((e) => ({ source: e.source, target: e.target }))
+      }
+    }
+
+    const result = await window.api.ttsExport(exportParams)
     if (result.ok) {
       window.api.notify('Export Complete', `Audio saved to ${result.output}`)
     } else if (result.error) {

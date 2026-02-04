@@ -1,11 +1,28 @@
+/** Serializable node graph for voice processing */
+export interface VoiceGraph {
+  nodes: {
+    id: string
+    type: string
+    position: { x: number; y: number }
+    params: Record<string, number | string>
+  }[]
+  edges: {
+    id: string
+    source: string
+    target: string
+  }[]
+}
+
 /** Voice profile parameters for TTS synthesis */
 export interface VoiceProfile {
   id: string
   name: string
-  pitch: number // semitones offset, -12 to +12
+  pitch: number // semitones offset, -12 to +12 (legacy, now in graph)
   rate: number // words per minute, 80 to 300
   volume: number // 0.0 to 1.0
   accent: string // preset identifier
+  systemVoiceId?: string // pyttsx3 voice ID
+  graph?: VoiceGraph // DSP node graph
   createdAt: string
   updatedAt: string
 }

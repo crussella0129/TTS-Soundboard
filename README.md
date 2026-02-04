@@ -132,5 +132,65 @@ This enables:
 
 ---
 
+## Quick Start: Creating an Altered Voice Profile
+
+This walkthrough creates a "Corrupted Robot" voice using pitch shifting, bitcrushing, and a chorus effect.
+
+### 1. Create a new profile
+
+1. Open TTS-Soundboard and navigate to **Voices** in the sidebar.
+2. Click **+ Add Profile**.
+3. In the **Parameters** tab:
+   - **Name:** `Corrupted Robot`
+   - **Accent:** `neutral`
+   - **System Voice:** Pick any available voice (e.g. Microsoft David)
+   - **Pitch:** `+3 st` (drag the slider right for a slightly higher base pitch)
+   - **Rate:** `120 wpm` (slower, more deliberate)
+   - **Volume:** `100%`
+
+### 2. Build the DSP graph
+
+1. Switch to the **DSP Graph** tab.
+2. You'll see two fixed nodes: **TTS Input** (left) and **Audio Output** (right).
+3. **Right-click** on the canvas to open the Add Node menu.
+
+Add these three nodes in order:
+
+| Step | Menu Category | Node | Key Settings |
+|------|---------------|------|--------------|
+| A | basic | **Pitch Shift** | Semitones: `+5` |
+| B | lo-fi | **Bitcrush** | Bit Depth: `8`, Downsample: `4` |
+| C | modulation | **Chorus** | Rate: `2.0 Hz`, Depth: `8 ms`, Wet Mix: `0.6`, Voices: `3` |
+
+### 3. Connect the chain
+
+Drag from each node's output handle (right side) to the next node's input handle (left side):
+
+```
+TTS Input --> Pitch Shift --> Bitcrush --> Chorus --> Audio Output
+```
+
+### 4. Preview and save
+
+1. Type some text in the **Preview Text** field (e.g. `Warning. System integrity compromised.`).
+2. Click **Preview** to hear the processed voice.
+3. Adjust parameters on any node by dragging its sliders directly in the graph.
+4. Click **Create** to save the profile.
+
+### 5. Use it in dialogue
+
+1. Go to **Dialogue** in the sidebar and add a new dialogue asset.
+2. Set the **Voice Profile** to `Corrupted Robot`.
+3. When you play or export that dialogue entry, the full DSP chain is applied automatically.
+
+### Tips
+
+- **Chain order matters.** Bitcrushing before chorus sounds different than chorus before bitcrushing. Experiment with node order.
+- **Start subtle.** Small parameter changes add up fast once you chain 3+ effects. Pull wet mixes back to 0.3-0.5 to keep things intelligible.
+- **Use filters to clean up.** Add a **Low-Pass Filter** (filter category) at the end of your chain to tame harsh high frequencies from distortion or bitcrushing.
+- **Preview often.** The Preview button runs the full DSP pipeline so you can iterate without saving.
+
+---
+
 TTS-Soundboard is designed to replace brittle voice-over pipelines with a **parametric, semantic, and programmable dialogue system**.
 

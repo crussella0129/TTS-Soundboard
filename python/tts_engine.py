@@ -16,6 +16,7 @@ import sys
 import os
 import tempfile
 import traceback
+import subprocess
 
 try:
     import pyttsx3
@@ -63,17 +64,28 @@ def apply_voice_params(engine, voice_id=None, rate=150, volume=1.0, pitch=0):
 
 
 def synthesize_to_file(engine, text, output_path, voice_id=None, rate=150, volume=1.0, pitch=0):
-    """Synthesize text to a .wav file."""
-    pitch_val = apply_voice_params(engine, voice_id, rate, volume, pitch)
+    """Synthesize text to a .wav file.
 
-    # On Windows SAPI5, we can use SSML-like pitch adjustment
-    if pitch_val != 0 and sys.platform == "win32":
-        # SAPI5 pitch range is roughly -10 to +10
-        sapi_pitch = max(-10, min(10, int(pitch_val * 10 / 12)))
-        text = f'<pitch absmiddle="{sapi_pitch}"/>{text}'
-
-    engine.save_to_file(text, output_path)
-    engine.runAndWait()
+    Spawns a fresh Python process for each synthesis to avoid the SAPI5 COM
+    runAndWait() deadlock that occurs on repeated calls within the same process.
+    """
+    params = json.dumps({
+        "text": text,
+        "output": output_path,
+        "voice_id": voice_id,
+        "rate": rate,
+        "volume": volume,
+        "pitch": pitch,
+    })
+    result = subprocess.run(
+        [sys.executable, os.path.join(os.path.dirname(__file__), "tts_engine.py"), "--synth"],
+        input=params,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Synthesis failed: {result.stderr.strip() or result.stdout.strip()}")
     return output_path
 
 
@@ -139,6 +151,59 @@ def handle_command(engine, cmd):
         )
         return {"ok": True, "output": output}
 
+    elif action == "list_dsp_nodes":
+        from dsp_nodes import get_registry_info
+        return {"ok": True, "nodes": get_registry_info()}
+
+    elif action == "process_graph":
+        # Synthesize TTS then process through DSP node graph
+        import numpy as np
+        import soundfile as sf
+        from dsp_nodes import process_graph
+
+        text = cmd.get("text", "")
+        graph = cmd.get("graph", {})
+
+        if not text.strip():
+            return {"ok": False, "error": "Empty text"}
+
+        # Step 1: Synthesize raw TTS to temp file
+        fd, raw_path = tempfile.mkstemp(suffix=".wav", prefix="tts_raw_")
+        os.close(fd)
+        synthesize_to_file(
+            engine,
+            text,
+            raw_path,
+            voice_id=cmd.get("voice_id"),
+            rate=cmd.get("rate", 150),
+            volume=cmd.get("volume", 1.0),
+            pitch=0,  # pitch is handled by DSP nodes now
+        )
+
+        # Step 2: Load audio
+        audio, sr = sf.read(raw_path, dtype="float64")
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)  # mono
+
+        # Step 3: Process through node graph
+        processed = process_graph(audio, sr, graph)
+
+        # Step 4: Write output
+        output = cmd.get("output")
+        if not output:
+            fd, output = tempfile.mkstemp(suffix=".wav", prefix="tts_dsp_")
+            os.close(fd)
+
+        sf.write(output, processed, sr)
+
+        # Clean up raw file
+        try:
+            os.unlink(raw_path)
+        except OSError:
+            pass
+
+        return {"ok": True, "output": output}
+
     elif action == "quit":
         return {"ok": True, "quit": True}
 
@@ -181,5 +246,32 @@ def main():
     engine.stop()
 
 
+def single_synth():
+    """Single-shot synthesis mode: read JSON params from stdin, synthesize, exit."""
+    params = json.loads(sys.stdin.read())
+    engine = pyttsx3.init()
+    try:
+        text = params["text"]
+        output_path = params["output"]
+        apply_voice_params(
+            engine,
+            voice_id=params.get("voice_id"),
+            rate=params.get("rate", 150),
+            volume=params.get("volume", 1.0),
+            pitch=params.get("pitch", 0),
+        )
+        pitch = params.get("pitch", 0)
+        if pitch != 0 and sys.platform == "win32":
+            sapi_pitch = max(-10, min(10, int(pitch * 10 / 12)))
+            text = f'<pitch absmiddle="{sapi_pitch}"/>{text}'
+        engine.save_to_file(text, output_path)
+        engine.runAndWait()
+    finally:
+        engine.stop()
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--synth":
+        single_synth()
+    else:
+        main()

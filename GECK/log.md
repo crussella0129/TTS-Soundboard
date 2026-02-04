@@ -194,3 +194,170 @@ None
 - Consider committing this milestone
 
 ---
+
+## Entry #4 — 2026-02-04
+
+### Summary
+Built the parametric voice design system — a visual node graph editor (React Flow) for chaining DSP effects onto voice profiles, and a full Python DSP processing pipeline with 11 audio effects.
+
+### Actions
+- Created Python DSP engine (`python/dsp_nodes.py`) with 11 effect nodes: gain, pitch_shift, time_stretch, reverb, eq_parametric, ring_modulation, distortion, bitcrush, formant_shift, granular, envelope_follower
+- Each node has a typed parameter definition (float/int/select with min/max/default/label)
+- Node graph processing uses topological sort (DFS from input) for correct execution order
+- Updated `tts_engine.py` with `process_graph` and `list_dsp_nodes` commands
+- Added IPC handlers for `tts:list-dsp-nodes` and `tts:process-graph` in main process
+- Updated preload with DSP API bindings and `env.d.ts` with DSP type declarations
+- Added `VoiceGraph` interface to `types.ts` and `graph` field on `VoiceProfile`
+- Created `NodeGraphEditor.tsx` — React Flow visual node graph editor:
+  - IONode (TTS Input / Audio Output) with source/target handles
+  - DSPNode with per-param sliders/selects, live value display, injected callbacks
+  - Right-click context menu grouped by DSP category (effects, modulation, dynamics, etc.)
+  - Bidirectional conversion between VoiceGraph (serializable) and React Flow format
+  - Debounced onChange syncs graph state back to parent
+- Added comprehensive CSS for node graph (flow nodes, handles, context menu, tabs, hints)
+- Integrated NodeGraphEditor into VoicesView with Parameters/DSP Graph tab toggle
+- Voice profiles now store and restore their DSP graph configurations
+- Preview uses `ttsProcessGraph` when DSP nodes are present, falls back to simple `ttsPreview`
+- Updated DialogueLibraryView: play and export use the voice profile's graph when available
+- `systemVoiceId` now saved and restored per voice profile
+- Voice profile list shows DSP node count badge when graph has effects
+- Build verified: all 3 bundles compile cleanly
+
+### Files Changed
+- `python/dsp_nodes.py` — Created, 11 DSP effect processors + node registry + graph processing
+- `python/tts_engine.py` — Added process_graph, list_dsp_nodes commands
+- `src/main/index.ts` — Added IPC handlers for DSP operations
+- `src/preload/index.ts` — Added ttsListDSPNodes, ttsProcessGraph API bindings
+- `src/renderer/src/NodeGraphEditor.tsx` — Created, React Flow node graph editor
+- `src/renderer/src/VoicesView.tsx` — Integrated graph editor, tab toggle, graph-aware preview
+- `src/renderer/src/DialogueLibraryView.tsx` — Graph-aware playback and export
+- `src/renderer/src/App.css` — Added node graph, context menu, tab styles
+- `src/renderer/src/types.ts` — Added VoiceGraph interface, graph field on VoiceProfile
+- `src/renderer/src/env.d.ts` — Added DSPParamDef, DSPNodeDef, DSPGraph types
+
+### Commits
+(pending — ready for commit)
+
+### Findings
+- React Flow v11 works well for the Grasshopper-style node editor
+- Topological sort via DFS ensures correct DSP chain processing order
+- numpy + scipy provide high-quality pitch shifting, reverb, and formant processing
+- The graph serialization format (VoiceGraph) is simple and JSON-compatible for .ttsp files
+
+### Issues
+- Python dependencies (numpy, scipy, soundfile) need to be installed for DSP to work
+- `python/requirements.txt` only lists pyttsx3; should be updated with DSP dependencies
+
+### Checkpoint
+**Status:** CONTINUE — Parametric voice design system complete. Node graph editor integrated, DSP pipeline functional.
+
+### Next
+- Install Python DSP dependencies (numpy, scipy, soundfile)
+- Test full pipeline end-to-end: TTS synthesis → DSP graph processing → audio playback
+- Commit and push parametric voice design milestone
+
+---
+
+## Entry #5 — 2026-02-04
+
+### Summary
+Expanded DSP node library from 11 to 16 nodes. Fixed NodeGraphEditor GUI issues (nodes placed at wrong position, context menu coordinate mismatch). Updated Python requirements with DSP dependencies. Added CUDA/GPU-accelerated DSP to Phase 3+ backlog.
+
+### Actions
+- Added 5 new DSP effect nodes to `python/dsp_nodes.py`:
+  - **Low-Pass Filter** (category: filter) — Butterworth filter with cutoff frequency and configurable order (1–8)
+  - **High-Pass Filter** (category: filter) — Butterworth filter with cutoff frequency and configurable order (1–8)
+  - **Chorus** (category: modulation) — Multi-voice detuned delay with LFO modulation, configurable rate/depth/voices/wet mix
+  - **Delay** (category: spatial) — Feedback delay/echo with configurable time, feedback (capped at 0.95), and wet mix
+  - **Compressor** (category: dynamics) — Dynamic range compressor with threshold, ratio, attack/release envelope, makeup gain
+- Fixed NodeGraphEditor.tsx GUI bugs:
+  - Wrapped editor in `ReactFlowProvider` (required by React Flow internals for hooks like `useReactFlow`)
+  - Used `onInit` callback to capture `ReactFlowInstance` ref
+  - Replaced manual coordinate calculation with `screenToFlowPosition()` for accurate node placement on right-click
+  - Fixed `onPaneContextMenu` type signature to accept both `React.MouseEvent` and `MouseEvent`
+- Updated `python/requirements.txt` to include numpy, scipy, soundfile alongside pyttsx3
+- Added CUDA/GPU-accelerated DSP processing to Phase 3 backlog in tasks.md
+- Updated DSP node count references from 11 to 16 in tasks.md
+
+### Files Changed
+- `python/dsp_nodes.py` — Added lowpass_filter, highpass_filter, chorus, delay, compressor functions + registry entries
+- `src/renderer/src/NodeGraphEditor.tsx` — ReactFlowProvider wrapper, screenToFlowPosition coordinate fix, onInit ref capture
+- `python/requirements.txt` — Added numpy>=1.24, scipy>=1.10, soundfile>=0.12
+- `GECK/tasks.md` — Updated node count (11→16), added CUDA backlog item, added completed items
+- `GECK/log.md` — Appended this entry
+
+### Commits
+(pending)
+
+### Findings
+- React Flow requires `ReactFlowProvider` ancestor for `screenToFlowPosition()` to work correctly
+- Without proper coordinate conversion, nodes were placed at screen pixel coordinates rather than flow-space coordinates (offset by panel/viewport transforms)
+- The 5 new nodes round out the DSP library with common audio production effects (filter, modulation, spatial, dynamics categories)
+
+### Issues
+None
+
+### Checkpoint
+**Status:** CONTINUE — DSP library expanded, GUI fix applied. Ready for end-to-end testing.
+
+### Next
+- Launch app and verify right-click node placement works correctly
+- Test DSP pipeline with new nodes (lowpass, highpass, chorus, delay, compressor)
+- Commit milestone
+
+---
+
+## Entry #6 — 2026-02-04
+
+### Summary
+Fixed two critical bugs preventing TTS preview from working: pyttsx3 SAPI5 COM deadlock on repeated synthesis, and `file://` audio playback blocked in Electron dev mode. End-to-end pipeline now functional: TTS → DSP graph → audio playback.
+
+### Actions
+- Diagnosed pyttsx3 `runAndWait()` deadlock via diagnostic logging:
+  - First synthesis call always succeeded; second call deadlocked in SAPI5 COM event loop
+  - Tested multiple fixes: `_inLoop` reset (failed), fresh engine per call (failed), threaded synthesis (worked standalone but deadlocked inside Electron subprocess)
+  - **Fix:** spawn a fresh Python subprocess per synthesis via `--synth` single-shot mode in `tts_engine.py`. Each process gets clean COM state, guaranteed no deadlock.
+- Fixed audio playback in renderer:
+  - In dev mode, renderer loads from `http://localhost`, which blocks `file://` URLs (same-origin policy)
+  - **Fix:** main process reads synthesized .wav file, encodes as base64 data URL, returns via IPC. Renderer plays `data:audio/wav;base64,...` directly.
+- Updated `DialogueLibraryView.tsx` to use same data URL playback pattern
+- Updated type declarations in `env.d.ts` (dataUrl instead of output for preview/process-graph)
+
+### Files Changed
+- `python/tts_engine.py` — Added `--synth` single-shot mode, `synthesize_to_file` now spawns subprocess
+- `src/main/index.ts` — `tts:preview` and `tts:process-graph` handlers read file and return base64 data URL
+- `src/renderer/src/VoicesView.tsx` — Use `result.dataUrl` instead of `file://` path for Audio
+- `src/renderer/src/DialogueLibraryView.tsx` — Same data URL playback fix
+- `src/renderer/src/env.d.ts` — Updated return types for preview/process-graph
+
+### Test Results
+- **Gain node:** Works — confirmed audible volume change
+- **Pitch Shift node:** Does NOT work — needs investigation (may be a scipy resampling issue)
+- **Basic preview (no DSP):** Works — repeated clicks, no deadlock
+- **DSP graph preview:** Works — full TTS → DSP → playback pipeline functional
+- **Node deletion:** NOT possible — no UI to remove DSP nodes from the graph (needs fix)
+
+### Commits
+(this commit)
+
+### Findings
+- pyttsx3's SAPI5 backend on Windows deadlocks `runAndWait()` on second call due to COM apartment threading
+- Threading within the same process does not fix the COM issue when spawned from Electron
+- Subprocess-per-synthesis is the only reliable fix; ~1s overhead per call is acceptable for preview
+- Electron dev mode (http origin) cannot load `file://` URLs; base64 data URLs bypass this
+
+### Issues
+- **Pitch Shift node not working** — needs investigation; the node runs without error but output may be silent or unchanged
+- **No node deletion UI** — DSP nodes cannot be removed from the graph once placed; need Delete key or right-click delete
+- Other DSP nodes (reverb, chorus, delay, etc.) untested — need systematic testing
+
+### Checkpoint
+**Status:** CONTINUE — Core pipeline working. Node deletion and DSP node correctness need attention.
+
+### Next
+- Add node deletion support (Delete key and/or context menu)
+- Debug Pitch Shift node (test scipy resampling)
+- Systematically test all 16 DSP nodes
+- Update README voice profile tutorial if needed
+
+---

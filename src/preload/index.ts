@@ -60,8 +60,20 @@ const api = {
     rate?: number
     volume?: number
     pitch?: number
+    graph?: object
   }): Promise<{ canceled?: boolean; ok?: boolean; output?: string; error?: string }> =>
     ipcRenderer.invoke('tts:export', params),
+  ttsListDSPNodes: (): Promise<{ ok: boolean; nodes?: Record<string, unknown>; error?: string }> =>
+    ipcRenderer.invoke('tts:list-dsp-nodes'),
+  ttsProcessGraph: (params: {
+    text: string
+    voice_id?: string
+    rate?: number
+    volume?: number
+    graph: object
+    output?: string
+  }): Promise<{ ok: boolean; output?: string; error?: string }> =>
+    ipcRenderer.invoke('tts:process-graph', params),
   onTTSReady: (callback: () => void): void => {
     ipcRenderer.on('tts:ready', callback)
   }

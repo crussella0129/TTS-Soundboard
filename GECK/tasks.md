@@ -58,12 +58,33 @@
 - [x] Add/edit/delete dialogue entries
 - [ ] Batch synthesis for dialogue assets
 
+### Parametric Voice Design (Phase 1.5)
+- [x] Python DSP engine with audio effect processors (16 nodes)
+- [x] Node registry with typed parameters (float/int/select)
+- [x] Graph processing via topological sort
+- [x] IPC integration for list_dsp_nodes and process_graph
+- [x] Visual node graph editor (React Flow) — NodeGraphEditor.tsx
+- [x] Custom IO nodes (TTS Input / Audio Output) and DSP effect nodes
+- [x] Right-click context menu for adding nodes by category
+- [x] Parameter controls (sliders, selects) on DSP nodes
+- [x] VoiceGraph data model and serialization
+- [x] Integration into VoicesView (Parameters/DSP Graph tabs)
+- [x] Graph-aware preview (ttsProcessGraph when DSP nodes present)
+- [x] Graph-aware dialogue playback and export
+- [x] System voice ID persistence per profile
+- [x] Install and verify Python DSP dependencies (numpy, scipy, soundfile)
+- [x] End-to-end test: TTS → DSP graph → audio playback (gain node verified working)
+- [x] Fix pyttsx3 SAPI5 deadlock (subprocess-per-synthesis)
+- [x] Fix audio playback in dev mode (base64 data URL via IPC)
+- [ ] Node deletion UI (Delete key or context menu to remove DSP nodes)
+- [ ] Fix Pitch Shift node (runs without error but output incorrect)
+- [ ] Systematic test of all 16 DSP nodes
+
 ## Backlog — Phase 2
 
 - [ ] Dialogue Library graph visualization
 - [ ] Event-driven dialogue resolution
 - [ ] Voice profile versioning and hash-based cache invalidation
-- [ ] Non-human voice effects (ring mod, granular, spectral)
 - [ ] Dialogue import/export (CSV, JSON)
 
 ## Backlog — Phase 3
@@ -72,6 +93,7 @@
 - [ ] Streaming audio output
 - [ ] Adaptive emotion and context modulation
 - [ ] Multi-language support
+- [ ] CUDA/GPU-accelerated DSP processing (batch convolution, real-time spectral transforms via cuFFT/cuSignal)
 
 ## Completed (Recent)
 
@@ -87,3 +109,9 @@
 - [x] Voice Profile CRUD (add/edit/delete, inline form with sliders)
 - [x] Dialogue Asset CRUD (add/edit/delete, voice profile selector, emotion/category)
 - [x] Component split (VoicesView, DialogueLibraryView, SettingsView)
+- [x] Python DSP engine (16 audio effects: gain, pitch_shift, time_stretch, reverb, EQ, ring_mod, distortion, bitcrush, formant_shift, granular, envelope_follower, lowpass, highpass, chorus, delay, compressor)
+- [x] React Flow visual node graph editor (NodeGraphEditor.tsx)
+- [x] Fixed NodeGraphEditor coordinate conversion (ReactFlowProvider + screenToFlowPosition)
+- [x] Added 5 new DSP nodes: low-pass filter, high-pass filter, chorus, delay, compressor
+- [x] Integrated parametric voice design into VoicesView
+- [x] Graph-aware dialogue playback and export
