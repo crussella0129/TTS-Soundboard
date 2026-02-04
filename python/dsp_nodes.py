@@ -16,26 +16,81 @@ def gain(audio: np.ndarray, sr: int, params: dict) -> np.ndarray:
     return audio * (10.0 ** (db / 20.0))
 
 
+def _ola_stretch(audio: np.ndarray, target_length: int, sr: int, window_ms: float = 50.0) -> np.ndarray:
+    """WSOLA time stretching. Changes duration without changing pitch.
+
+    Uses Waveform Similarity OLA to find optimal grain positions,
+    preventing phase cancellation artifacts.
+    """
+    window_size = max(64, int(sr * window_ms / 1000.0))
+    window_size += window_size % 2  # ensure even
+    hop_in = window_size // 2  # 50% overlap
+
+    stretch = target_length / max(len(audio), 1)
+    hop_out = max(1, int(hop_in * stretch))
+    search_radius = hop_in // 2
+
+    window = np.hanning(window_size)
+    output = np.zeros(target_length + window_size)
+    window_sum = np.zeros(target_length + window_size)
+
+    pos_in = 0
+    pos_out = 0
+    while pos_in + window_size <= len(audio) and pos_out + window_size <= len(output):
+        best_pos = pos_in
+
+        # WSOLA: cross-correlate to find best grain alignment
+        if pos_out > 0:
+            search_start = max(0, pos_in - search_radius)
+            search_end = min(len(audio) - window_size, pos_in + search_radius)
+            overlap_len = min(hop_out, window_size // 4)
+            if overlap_len > 0 and search_end > search_start:
+                ref = output[pos_out:pos_out + overlap_len]
+                search_audio = audio[search_start:search_end + overlap_len]
+                if len(search_audio) >= overlap_len and np.any(ref != 0):
+                    corr = np.correlate(search_audio, ref, mode='valid')
+                    best_pos = search_start + int(np.argmax(corr))
+
+        grain = audio[best_pos:best_pos + window_size] * window
+        output[pos_out:pos_out + window_size] += grain
+        window_sum[pos_out:pos_out + window_size] += window
+        pos_in += hop_in
+        pos_out += hop_out
+
+    # Normalize by window sum to avoid amplitude modulation
+    nonzero = window_sum > 1e-8
+    output[nonzero] /= window_sum[nonzero]
+
+    return output[:target_length]
+
+
 def pitch_shift(audio: np.ndarray, sr: int, params: dict) -> np.ndarray:
-    """Pitch shift via resampling. params: {semitones: float}"""
+    """Pitch shift via interpolation resample + OLA time restore.
+    params: {semitones: float}
+    """
     semitones = params.get("semitones", 0.0)
     if semitones == 0:
         return audio
     factor = 2.0 ** (semitones / 12.0)
-    # Resample to shift pitch, then time-stretch back to original length
-    n_out = int(len(audio) / factor)
-    shifted = signal.resample(audio, n_out)
-    # Resample back to original length to preserve duration
-    return signal.resample(shifted, len(audio))
+    n = len(audio)
+
+    # Step 1: Interpolation resample — changes pitch by changing playback speed
+    # (also changes duration)
+    n_resampled = max(2, int(n / factor))
+    indices = np.linspace(0, n - 1, n_resampled)
+    resampled = np.interp(indices, np.arange(n), audio)
+
+    # Step 2: OLA time-stretch back to original length (preserves pitch, restores duration)
+    return _ola_stretch(resampled, n, sr=sr)
 
 
 def time_stretch(audio: np.ndarray, sr: int, params: dict) -> np.ndarray:
-    """Time stretch via phase vocoder. params: {factor: float} (>1 = slower, <1 = faster)"""
+    """Time stretch via OLA. params: {factor: float} (>1 = slower, <1 = faster)"""
     factor = params.get("factor", 1.0)
     if factor == 1.0:
         return audio
-    n_out = int(len(audio) * factor)
-    return signal.resample(audio, n_out)
+    target_length = max(2, int(len(audio) * factor))
+    return _ola_stretch(audio, target_length, sr=sr)
 
 
 def reverb(audio: np.ndarray, sr: int, params: dict) -> np.ndarray:

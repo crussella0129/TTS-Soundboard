@@ -108,11 +108,22 @@ function DSPNode({ id, data }: NodeProps): JSX.Element {
     key: string,
     val: number | string
   ) => void
+  const onDeleteNode = data.onDeleteNode as (nodeId: string) => void
 
   return (
     <div className="flow-node flow-dsp-node">
       <Handle type="target" position={Position.Left} />
-      <div className="flow-node-header">{data.label}</div>
+      <div className="flow-node-header">
+        {data.label}
+        <button
+          className="flow-node-delete nodrag"
+          onClick={() => onDeleteNode(id)}
+          title="Remove node"
+          aria-label="Remove node"
+        >
+          ×
+        </button>
+      </div>
       <div className="flow-node-params">
         {Object.entries(paramDefs).map(([key, def]) => (
           <label key={key} className="flow-param">
@@ -126,7 +137,7 @@ function DSPNode({ id, data }: NodeProps): JSX.Element {
               <select
                 value={String(params[key] ?? def.default)}
                 onChange={(e) => onParamChange(id, key, e.target.value)}
-                className="flow-param-select"
+                className="flow-param-select nodrag"
               >
                 {def.options?.map((opt) => (
                   <option key={opt} value={opt}>
@@ -142,7 +153,7 @@ function DSPNode({ id, data }: NodeProps): JSX.Element {
                 step={def.type === 'int' ? 1 : (((def.max ?? 1) - (def.min ?? 0)) / 100)}
                 value={Number(params[key] ?? def.default)}
                 onChange={(e) => onParamChange(id, key, Number(e.target.value))}
-                className="flow-param-slider"
+                className="flow-param-slider nodrag"
               />
             )}
           </label>
@@ -160,7 +171,19 @@ function GraphEditorInner({ graph, onChange, dspRegistry }: Props): JSX.Element 
   const [nodes, setNodes, onNodesChange] = useNodesState(toFlowNodes(graph, dspRegistry))
   const [edges, setEdges, onEdgesChange] = useEdgesState(toFlowEdges(graph))
   const [addMenuPos, setAddMenuPos] = useState<{ screenX: number; screenY: number } | null>(null)
+  const [nodeMenuInfo, setNodeMenuInfo] = useState<{ screenX: number; screenY: number; nodeId: string } | null>(null)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
+
+  // Delete a DSP node and its connected edges
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      if (nodeId === 'input' || nodeId === 'output') return
+      setNodes((nds) => nds.filter((n) => n.id !== nodeId))
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId))
+      setNodeMenuInfo(null)
+    },
+    [setNodes, setEdges]
+  )
 
   // Param change callback injected into DSP nodes
   const onParamChange = useCallback(
@@ -178,13 +201,13 @@ function GraphEditorInner({ graph, onChange, dspRegistry }: Props): JSX.Element 
     [setNodes]
   )
 
-  // Inject onParamChange into all DSP nodes
+  // Inject callbacks into all DSP nodes
   const nodesWithCallbacks = useMemo(
     () =>
       nodes.map((n) =>
-        n.type === 'dspNode' ? { ...n, data: { ...n.data, onParamChange } } : n
+        n.type === 'dspNode' ? { ...n, data: { ...n.data, onParamChange, onDeleteNode: deleteNode } } : n
       ),
-    [nodes, onParamChange]
+    [nodes, onParamChange, deleteNode]
   )
 
   // Sync back to parent on changes
@@ -205,9 +228,24 @@ function GraphEditorInner({ graph, onChange, dspRegistry }: Props): JSX.Element 
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
       event.preventDefault()
+      setNodeMenuInfo(null)
       setAddMenuPos({
         screenX: event.clientX,
         screenY: event.clientY
+      })
+    },
+    []
+  )
+
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      if (node.id === 'input' || node.id === 'output') return
+      event.preventDefault()
+      setAddMenuPos(null)
+      setNodeMenuInfo({
+        screenX: event.clientX,
+        screenY: event.clientY,
+        nodeId: node.id
       })
     },
     []
@@ -268,7 +306,7 @@ function GraphEditorInner({ graph, onChange, dspRegistry }: Props): JSX.Element 
   }, [dspRegistry])
 
   return (
-    <div className="node-graph-container" onClick={() => setAddMenuPos(null)}>
+    <div className="node-graph-container" onClick={() => { setAddMenuPos(null); setNodeMenuInfo(null) }}>
       <ReactFlow
         nodes={nodesWithCallbacks}
         edges={edges}
@@ -277,6 +315,7 @@ function GraphEditorInner({ graph, onChange, dspRegistry }: Props): JSX.Element 
         onConnect={onConnect}
         onNodesDelete={onNodesDelete}
         onPaneContextMenu={onPaneContextMenu}
+        onNodeContextMenu={onNodeContextMenu}
         onInit={(instance) => { reactFlowInstance.current = instance }}
         nodeTypes={nodeTypes}
         fitView
@@ -311,7 +350,22 @@ function GraphEditorInner({ graph, onChange, dspRegistry }: Props): JSX.Element 
         </div>
       )}
 
-      <div className="graph-hint">Right-click to add nodes. Drag between handles to connect.</div>
+      {nodeMenuInfo && (
+        <div
+          className="context-menu"
+          style={{ left: nodeMenuInfo.screenX, top: nodeMenuInfo.screenY }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="context-menu-item context-menu-delete"
+            onClick={() => deleteNode(nodeMenuInfo.nodeId)}
+          >
+            Delete Node
+          </button>
+        </div>
+      )}
+
+      <div className="graph-hint">Right-click canvas to add nodes. Right-click a node to delete. Drag handles to connect.</div>
     </div>
   )
 }

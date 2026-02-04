@@ -77,8 +77,9 @@
 - [x] Fix pyttsx3 SAPI5 deadlock (subprocess-per-synthesis)
 - [x] Fix audio playback in dev mode (base64 data URL via IPC)
 - [ ] Node deletion UI (Delete key or context menu to remove DSP nodes)
-- [ ] Fix Pitch Shift node (runs without error but output incorrect)
-- [ ] Systematic test of all 16 DSP nodes
+- [x] Fix Pitch Shift node (interpolation resample + WSOLA time restore)
+- [x] Fix Time Stretch node (WSOLA instead of signal.resample)
+- [x] Systematic test of all 16 DSP nodes (all pass, pitch shift ±2 cents accuracy)
 
 ## Backlog — Phase 2
 
@@ -115,3 +116,6 @@
 - [x] Added 5 new DSP nodes: low-pass filter, high-pass filter, chorus, delay, compressor
 - [x] Integrated parametric voice design into VoicesView
 - [x] Graph-aware dialogue playback and export
+- [x] Fixed Pitch Shift node (interpolation resample + WSOLA, ±2 cents accuracy)
+- [x] Fixed Time Stretch node (WSOLA instead of Fourier resample)
+- [x] All 16 DSP nodes tested and verified working

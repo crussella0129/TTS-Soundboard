@@ -361,3 +361,60 @@ Fixed two critical bugs preventing TTS preview from working: pyttsx3 SAPI5 COM d
 - Update README voice profile tutorial if needed
 
 ---
+
+## Entry #7 — 2026-02-04
+
+### Summary
+Fixed Pitch Shift and Time Stretch DSP nodes. Both were broken due to incorrect use of `scipy.signal.resample` (Fourier-based resampling that preserves frequency content). Replaced with proper interpolation + WSOLA approach. All 16 nodes now pass comprehensive testing.
+
+### Actions
+- **Diagnosed Pitch Shift bug:** Two consecutive `signal.resample` calls were approximate inverses — the first changed duration (preserving pitch via Fourier method), the second undid it. Net result: no-op. Test confirmed correlation 0.999990 between input and "shifted" output.
+- **Diagnosed Time Stretch bug:** Single `signal.resample` changes both duration AND pitch when played at the same sample rate. Time stretch should change only duration.
+- **Implemented `_ola_stretch` (WSOLA):** Waveform Similarity Overlap-Add time stretching that changes duration without changing pitch:
+  - 50ms Hann windows with 50% analysis overlap
+  - Cross-correlation search finds optimal grain position within ±hop/2 radius
+  - Window-sum normalization prevents amplitude modulation artifacts
+- **Fixed `pitch_shift`:** Two-step process:
+  1. `np.interp` interpolation resample — genuinely changes pitch by changing playback speed (also changes duration)
+  2. `_ola_stretch` restores original duration while preserving the shifted pitch
+- **Fixed `time_stretch`:** Uses `_ola_stretch` directly (changes duration without pitch change)
+- **Comprehensive test of all 16 nodes:** All pass — no NaN, Inf, silence, or no-op results
+
+### Files Changed
+- `python/dsp_nodes.py` — Rewrote `_ola_stretch` (WSOLA), `pitch_shift`, and `time_stretch`
+
+### Test Results
+All 16 DSP nodes: PASS (no NaN, Inf, silence, or no-effect)
+
+Pitch Shift frequency accuracy (440 Hz sine):
+| Semitones | Output Hz | Expected Hz | Error (cents) |
+|-----------|-----------|-------------|---------------|
+| -12       | 220.0     | 220.0       | 0.0           |
+| -5        | 330.0     | 329.6       | +2.0          |
+| -1        | 415.0     | 415.3       | -1.3          |
+| +1        | 466.0     | 466.2       | -0.6          |
+| +5        | 587.0     | 587.3       | -1.0          |
+| +12       | 880.0     | 880.0       | 0.0           |
+
+All within ±2 cents (well below human perception threshold of ~5-10 cents).
+
+### Commits
+(pending)
+
+### Findings
+- `scipy.signal.resample` uses Fourier (FFT) method: changes sample count but preserves spectral content. Two consecutive calls are approximate inverses.
+- `np.interp` does linear interpolation: genuinely changes pitch by altering effective playback speed.
+- WSOLA (cross-correlation grain search) produces much better results than naive OLA for pitch shifting — prevents phase cancellation between adjacent grains.
+- Pure sine waves are worst-case for OLA (all energy in one frequency bin); speech signals work much better due to complex waveform structure.
+
+### Issues
+- **Node deletion UI** still not implemented — DSP nodes cannot be removed from the graph
+
+### Checkpoint
+**Status:** CONTINUE — All DSP nodes functional. Node deletion UI is the remaining Phase 1.5 task.
+
+### Next
+- Launch app and test pitch shift interactively with TTS audio
+- Add node deletion support (Delete key and/or context menu)
+
+---
