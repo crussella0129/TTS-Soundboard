@@ -12,8 +12,8 @@ import {
   Notification
 } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { spawn, ChildProcess } from 'child_process'
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
+import { spawn, execFile, ChildProcess } from 'child_process'
 import { createInterface, Interface } from 'readline'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import Store from 'electron-store'
@@ -28,6 +28,13 @@ const store = new Store({
   }
 })
 
+function getIconPath(): string {
+  if (is.dev) {
+    return join(__dirname, '../../resources/icon.png')
+  }
+  return join(process.resourcesPath, 'icon.png')
+}
+
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let ttsProcess: ChildProcess | null = null
@@ -36,6 +43,29 @@ let ttsReadline: Interface | null = null
 let pendingRequests: Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }> =
   new Map()
 let requestId = 0
+let pythonCommand = 'python'
+
+async function findPythonCommand(): Promise<void> {
+  const candidates =
+    process.platform === 'win32' ? ['python', 'python3'] : ['python3', 'python']
+
+  for (const cmd of candidates) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        execFile(cmd, ['--version'], (error) => {
+          if (error) reject(error)
+          else resolve()
+        })
+      })
+      pythonCommand = cmd
+      console.log(`Using Python command: ${cmd}`)
+      return
+    } catch {
+      // candidate not found, try next
+    }
+  }
+  console.error('No Python installation found. Tried:', candidates.join(', '))
+}
 
 function getWindowBounds(): { x?: number; y?: number; width: number; height: number } {
   const saved = store.get('windowBounds') as { x?: number; y?: number; width: number; height: number }
@@ -65,6 +95,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
+    icon: getIconPath(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#ffffff',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -124,7 +155,7 @@ function saveWindowState(): void {
 }
 
 function createTray(): void {
-  const iconPath = join(__dirname, '../../resources/icon.png')
+  const iconPath = getIconPath()
   let trayIcon: Electron.NativeImage
 
   if (existsSync(iconPath)) {
@@ -310,6 +341,7 @@ function setupIPC(): void {
       if (result.ok && result.output) {
         try {
           const audioData = readFileSync(result.output)
+          try { unlinkSync(result.output) } catch { /* ignore */ }
           const dataUrl = `data:audio/wav;base64,${audioData.toString('base64')}`
           return { ok: true, dataUrl }
         } catch (err) {
@@ -355,6 +387,7 @@ function setupIPC(): void {
     if (result.ok && result.output) {
       try {
         const audioData = readFileSync(result.output)
+        try { unlinkSync(result.output) } catch { /* ignore */ }
         const dataUrl = `data:audio/wav;base64,${audioData.toString('base64')}`
         return { ok: true, dataUrl }
       } catch (err) {
@@ -382,7 +415,7 @@ function spawnTTSProcess(): void {
     return
   }
 
-  ttsProcess = spawn('python', [scriptPath], {
+  ttsProcess = spawn(pythonCommand, [scriptPath], {
     stdio: ['pipe', 'pipe', 'pipe']
   })
 
@@ -467,9 +500,11 @@ function shutdownTTS(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Set app user model id for Windows
-  electronApp.setAppUserModelId('com.tts-soundboard.app')
+  if (process.platform === 'win32') {
+    electronApp.setAppUserModelId('com.tts-soundboard.app')
+  }
 
   // Default open or close DevTools by F12 in development
   app.on('browser-window-created', (_, window) => {
@@ -479,6 +514,7 @@ app.whenReady().then(() => {
   setupIPC()
   createWindow()
   createTray()
+  await findPythonCommand()
   spawnTTSProcess()
 
   app.on('activate', () => {

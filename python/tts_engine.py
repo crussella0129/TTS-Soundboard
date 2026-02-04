@@ -14,6 +14,7 @@ Commands:
 import json
 import sys
 import os
+import shutil
 import tempfile
 import traceback
 import subprocess
@@ -27,7 +28,20 @@ except ImportError:
 
 
 def init_engine():
-    """Initialize the TTS engine."""
+    """Initialize the TTS engine.
+
+    On Linux, pyttsx3 uses espeak as its backend. If espeak is not installed,
+    pyttsx3.init() raises an opaque FileNotFoundError. We detect this early
+    and provide a clear error message with install instructions.
+    """
+    if sys.platform == "linux":
+        if not shutil.which("espeak") and not shutil.which("espeak-ng"):
+            raise RuntimeError(
+                "espeak is not installed. pyttsx3 requires espeak on Linux.\n"
+                "On Ubuntu/Debian: sudo apt install espeak-ng\n"
+                "On Fedora: sudo dnf install espeak-ng\n"
+                "On Arch: sudo pacman -S espeak-ng"
+            )
     engine = pyttsx3.init()
     return engine
 
@@ -249,7 +263,7 @@ def main():
 def single_synth():
     """Single-shot synthesis mode: read JSON params from stdin, synthesize, exit."""
     params = json.loads(sys.stdin.read())
-    engine = pyttsx3.init()
+    engine = init_engine()
     try:
         text = params["text"]
         output_path = params["output"]

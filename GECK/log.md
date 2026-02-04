@@ -418,3 +418,84 @@ All within ±2 cents (well below human perception threshold of ~5-10 cents).
 - Add node deletion support (Delete key and/or context menu)
 
 ---
+
+## Entry #8 — 2026-02-04
+
+### Summary
+Cross-platform compatibility changes to support macOS and Linux in addition to Windows. Four targeted fixes: Python command detection, Windows-only API guard, temp file cleanup, and Linux espeak error handling.
+
+### Actions
+- Added `findPythonCommand()` async function that probes `python3`/`python` in platform-appropriate order using `execFile`
+- Guarded `electronApp.setAppUserModelId()` with `process.platform === 'win32'` check (Windows-only API)
+- Added `unlinkSync` cleanup of temp .wav files after `readFileSync` in `tts:preview` and `tts:process-graph` IPC handlers (prevents disk space leaks)
+- Added `shutil.which` check for `espeak`/`espeak-ng` on Linux in `init_engine()` with clear error messages and install instructions for Ubuntu/Debian, Fedora, and Arch
+- Updated `single_synth()` to use `init_engine()` instead of bare `pyttsx3.init()` for consistent error handling
+
+### Files Changed
+- `src/main/index.ts` — Python command detection, platform guard, temp file cleanup
+- `python/tts_engine.py` — Linux espeak error handling in init_engine(), single_synth() uses init_engine()
+- `GECK/tasks.md` — Added Cross-Platform Compatibility section, updated Completed list
+- `GECK/log.md` — Appended this entry
+
+### Commits
+(pending)
+
+### Findings
+- Most of the codebase was already portable (path.join, os.path.join, tempfile, electron-builder targets, platform checks for SAPI5 pitch and macOS quit behavior)
+- Only four spots needed changes: hardcoded `python` command, unconditional Windows API call, temp file leaks, and opaque pyttsx3 errors on Linux
+- `execFile` is cleaner than `spawn` for probing whether a command exists (no shell, just exec and check error)
+
+### Issues
+None
+
+### Checkpoint
+**Status:** CONTINUE — App now supports Windows, macOS, and Linux.
+
+### Next
+- Verify `npx electron-vite build` compiles cleanly
+- Test on macOS/Linux if available
+
+---
+
+## Entry #9 — 2026-02-04
+
+### Summary
+App launcher and taskbar integration. Generated TTS-themed app icon (speech bubble with waveform), set BrowserWindow icon, fixed tray icon path for production builds, added extraResources for icon and Python directory, added deb target for Linux, removed dangling macOS entitlements reference.
+
+### Actions
+- Generated `resources/icon.png` (512x512 RGBA) and `resources/icon.ico` (multi-size: 16/32/48/64/128/256) using Python + Pillow
+- Icon design: blue speech bubble with white audio waveform bars on dark rounded-square background
+- Added `getIconPath()` helper in main process — uses `__dirname` in dev, `process.resourcesPath` in production
+- Set `icon: getIconPath()` on BrowserWindow constructor (fixes Linux taskbar icon)
+- Updated `createTray()` to use `getIconPath()` instead of hardcoded relative path (fixes tray icon in production builds)
+- Added `extraResources` in electron-builder.yml for `icon.png` (tray/window icon at runtime) and `python/` (TTS engine scripts)
+- Added `deb` target for Linux (installs .desktop file + icon for app menu integration)
+- Added `icon` field for Linux pointing to 512x512 PNG
+- Removed dangling `entitlementsInherit: build/entitlements.mac.plist` from mac config (file doesn't exist)
+
+### Files Changed
+- `resources/icon.png` — Created, 512x512 TTS-themed app icon
+- `resources/icon.ico` — Created, multi-size Windows icon (16/32/48/64/128/256)
+- `src/main/index.ts` — Added getIconPath(), BrowserWindow icon, fixed tray icon path
+- `electron-builder.yml` — extraResources, deb target, linux icon, removed mac entitlements
+- `GECK/tasks.md` — Added launcher integration task
+- `GECK/log.md` — Appended this entry
+
+### Commits
+(pending)
+
+### Findings
+- electron-builder auto-detects icon.png/icon.ico from buildResources directory for installer icons
+- extraResources is needed separately for runtime access (tray icon, window icon) since the app is asar-packed
+- The python/ directory was referenced by getTTSScriptPath() but never configured as extraResources — would have failed in production
+- deb packages install .desktop files and icons to system paths, enabling GNOME/KDE app menu integration (AppImage does not)
+
+### Issues
+None
+
+### Checkpoint
+**Status:** CONTINUE — Launcher integration complete.
+
+### Next
+- Verify build compiles cleanly
+- Test icon appearance in dev mode

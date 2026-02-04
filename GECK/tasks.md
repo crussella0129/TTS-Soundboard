@@ -32,6 +32,7 @@
 
 ### System Integration
 - [x] System tray icon with context menu (Show/Quit)
+- [x] App launcher & taskbar integration (icon files, BrowserWindow icon, production icon paths, extraResources, deb target)
 - [ ] Desktop notifications
 - [ ] File associations (.ttsp)
 
@@ -57,6 +58,12 @@
 - [x] Dialogue asset list/table UI (inside Dialogue Library view)
 - [x] Add/edit/delete dialogue entries
 - [ ] Batch synthesis for dialogue assets
+
+### Cross-Platform Compatibility
+- [x] Detect Python command cross-platform (python3 on macOS/Linux, python on Windows)
+- [x] Guard setAppUserModelId to Windows only
+- [x] Clean up temp .wav files after preview/process-graph (prevent disk space leaks)
+- [x] Better error handling for pyttsx3 on Linux (espeak detection with install instructions)
 
 ### Parametric Voice Design (Phase 1.5)
 - [x] Python DSP engine with audio effect processors (16 nodes)
@@ -119,3 +126,5 @@
 - [x] Fixed Pitch Shift node (interpolation resample + WSOLA, ±2 cents accuracy)
 - [x] Fixed Time Stretch node (WSOLA instead of Fourier resample)
 - [x] All 16 DSP nodes tested and verified working
+- [x] Cross-platform compatibility (Python detection, Windows API guard, temp cleanup, Linux espeak)
+- [x] App launcher & taskbar integration (icon.png/ico, BrowserWindow icon, production tray path, extraResources, deb target)
