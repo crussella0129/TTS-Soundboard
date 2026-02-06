@@ -194,3 +194,5 @@ TTS Input --> Pitch Shift --> Bitcrush --> Chorus --> Audio Output
 
 TTS-Soundboard is designed to replace brittle voice-over pipelines with a **parametric, semantic, and programmable dialogue system**.
 
+future direction: Emotional inflection parameters with definable tokens (happy, angry, etc..) that can be used in dialogue hash tables to alter resulting speech for that particular dialogue line 
+
